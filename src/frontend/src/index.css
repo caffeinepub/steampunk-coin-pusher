@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/assets/fonts/PlayfairDisplay-VariableFont_wght.woff2")
+    format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/fonts/JetBrainsMono-VariableFont_wght.woff2")
+    format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* Steampunk dark theme - brass and copper tones */
+    --background: 18 0.03 55;
+    --foreground: 82 0.08 75;
+
+    --card: 20 0.04 50;
+    --card-foreground: 82 0.08 75;
+
+    --popover: 18 0.03 55;
+    --popover-foreground: 82 0.08 75;
+
+    /* Brass gold primary */
+    --primary: 72 0.14 78;
+    --primary-foreground: 15 0.02 40;
+
+    /* Copper secondary */
+    --secondary: 45 0.09 55;
+    --secondary-foreground: 82 0.08 75;
+
+    --muted: 22 0.03 45;
+    --muted-foreground: 62 0.05 65;
+
+    /* Amber accent */
+    --accent: 68 0.16 70;
+    --accent-foreground: 15 0.02 30;
+
+    --destructive: 50 0.2 25;
+    --destructive-foreground: 95 0.01 80;
+
+    --border: 35 0.05 45;
+    --input: 25 0.04 48;
+    --ring: 68 0.16 70;
+
+    --radius: 4px;
+
+    --chart-1: 72 0.14 78;
+    --chart-2: 55 0.12 60;
+    --chart-3: 45 0.09 55;
+    --chart-4: 35 0.07 48;
+    --chart-5: 25 0.05 40;
+
+    --sidebar: 18 0.03 50;
+    --sidebar-foreground: 82 0.08 75;
+    --sidebar-primary: 72 0.14 78;
+    --sidebar-primary-foreground: 15 0.02 40;
+    --sidebar-accent: 25 0.04 48;
+    --sidebar-accent-foreground: 82 0.08 75;
+    --sidebar-border: 35 0.05 45;
+    --sidebar-ring: 68 0.16 70;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "JetBrains Mono", monospace;
+    overflow: hidden;
+  }
+}
+
+/* Steampunk brass panel styling */
+.brass-panel {
+  background: linear-gradient(
+    135deg,
+    oklch(35 0.08 65) 0%,
+    oklch(28 0.06 58) 30%,
+    oklch(32 0.07 62) 60%,
+    oklch(25 0.05 52) 100%
+  );
+  border: 2px solid oklch(55 0.12 72);
+  box-shadow: 0 0 0 1px oklch(25 0.04 48), inset 0 1px 0 oklch(65 0.14 75 / 0.3),
+    0 4px 16px oklch(10 0.02 40 / 0.8), 0 0 30px oklch(60 0.12 70 / 0.15);
+}
+
+.brass-text {
+  color: oklch(78 0.14 76);
+  text-shadow: 0 0 8px oklch(72 0.14 78 / 0.5);
+  font-family: "Playfair Display", serif;
+}
+
+.copper-border {
+  border-color: oklch(58 0.1 55);
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+
+@keyframes gear-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gear-spin-reverse {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes steam-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-18px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+}
+
+.gear-spin {
+  animation: gear-spin 8s linear infinite;
+}
+.gear-spin-reverse {
+  animation: gear-spin-reverse 12s linear infinite;
+}
+.steam-pulse {
+  animation: steam-pulse 3s ease-in-out infinite;
+}
