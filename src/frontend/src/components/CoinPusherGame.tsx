@@ -12,6 +12,7 @@ interface CoinData {
   vz: number;
   ry: number;
   isGold: boolean;
+  frozen: boolean;
 }
 
 interface GameState {
@@ -32,7 +33,7 @@ interface FloatItem {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COIN_R = 0.45;
 const COIN_FRICTION = 0.97;
-const PUSHER_Z_MIN = -5.5;
+const PUSHER_Z_MIN = -7.0;
 const PUSHER_Z_MAX = 2.5;
 const PUSHER_SPEED_FWD = 0.028;
 const PUSHER_SPEED_BCK = 0.13;
@@ -122,27 +123,23 @@ function createCoinFaceTexture(isGold: boolean): THREE.CanvasTexture {
   const cy = size / 2;
   const r = size / 2 - 4;
 
-  // Background circle
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fillStyle = isGold ? "#3a2200" : "#1a1a1a";
   ctx.fill();
 
-  // Outer ring
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.strokeStyle = isGold ? "#ffd700" : "#cccccc";
   ctx.lineWidth = 10;
   ctx.stroke();
 
-  // Inner ring
   ctx.beginPath();
   ctx.arc(cx, cy, r - 14, 0, Math.PI * 2);
   ctx.strokeStyle = isGold ? "#c8960a" : "#888888";
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  // Infinity symbol
   ctx.font = "bold 110px serif";
   ctx.fillStyle = isGold ? "#ffe060" : "#ffffff";
   ctx.textAlign = "center";
@@ -231,6 +228,7 @@ function createSeedCoins(): CoinData[] {
         vz: 0,
         ry: Math.random() * Math.PI * 2,
         isGold: Math.random() < GOLD_CHANCE,
+        frozen: false,
       });
     }
   }
@@ -247,11 +245,20 @@ function runPhysics(state: GameState): CoinData[] {
   }
 
   const pusherFront = state.pusherZ + 0.4;
+  const pusherBack = state.pusherZ - 0.4;
 
   for (const c of state.coins) {
     if (Math.abs(c.x) <= RIGHT_WALL_X) {
-      if (c.z - COIN_R < pusherFront && c.z + COIN_R > state.pusherZ - 0.4) {
-        if (state.pusherDir === 1) {
+      const inContact = c.z - COIN_R < pusherFront && c.z + COIN_R > pusherBack;
+      if (inContact) {
+        if (c.frozen) {
+          // Unfreeze when pusher makes contact during forward stroke
+          if (state.pusherDir === 1) {
+            c.frozen = false;
+            c.z = pusherFront + COIN_R;
+            c.vz = PUSHER_SPEED_FWD * 6 + 0.3;
+          }
+        } else if (state.pusherDir === 1) {
           c.z = pusherFront + COIN_R;
           c.vz = Math.max(c.vz, PUSHER_SPEED_FWD * 6 + 0.3);
         }
@@ -261,6 +268,12 @@ function runPhysics(state: GameState): CoinData[] {
 
   const toRemove = new Set<number>();
   for (const c of state.coins) {
+    if (c.frozen) {
+      // Frozen coins: only spin in place, no translation
+      c.ry += 0.008;
+      continue;
+    }
+
     c.x += c.vx;
     c.z += c.vz;
     c.ry += 0.015;
@@ -284,6 +297,8 @@ function runPhysics(state: GameState): CoinData[] {
     if (c.z > COLLECTION_Z) toRemove.add(c.id);
   }
 
+  // Coin-coin collisions (frozen coins act as immovable obstacles when hit by moving coins,
+  // but moving coins can unfreeze frozen ones via chain push)
   for (let i = 0; i < state.coins.length; i++) {
     for (let j = i + 1; j < state.coins.length; j++) {
       const a = state.coins[i];
@@ -297,19 +312,46 @@ function runPhysics(state: GameState): CoinData[] {
         const nx = dx / d;
         const nz = dz / d;
         const ov = (minD - d) * 0.5;
-        a.x -= nx * ov;
-        a.z -= nz * ov;
-        b.x += nx * ov;
-        b.z += nz * ov;
-        const dvx = b.vx - a.vx;
-        const dvz = b.vz - a.vz;
-        const dot = dvx * nx + dvz * nz;
-        if (dot < 0) {
-          const imp = dot * 0.6;
-          a.vx += imp * nx;
-          a.vz += imp * nz;
-          b.vx -= imp * nx;
-          b.vz -= imp * nz;
+        if (a.frozen && b.frozen) {
+          // Both frozen: just separate positionally (stacking)
+          a.x -= nx * ov;
+          a.z -= nz * ov;
+          b.x += nx * ov;
+          b.z += nz * ov;
+        } else if (a.frozen) {
+          // Only b moves
+          b.x += nx * ov * 2;
+          b.z += nz * ov * 2;
+          const dot = b.vx * nx + b.vz * nz;
+          if (dot < 0) {
+            b.vx -= dot * nx * 1.2;
+            b.vz -= dot * nz * 1.2;
+          }
+        } else if (b.frozen) {
+          // Only a moves
+          a.x -= nx * ov * 2;
+          a.z -= nz * ov * 2;
+          const dot = a.vx * nx + a.vz * nz;
+          if (dot > 0) {
+            a.vx -= dot * nx * 1.2;
+            a.vz -= dot * nz * 1.2;
+          }
+        } else {
+          // Both moving
+          a.x -= nx * ov;
+          a.z -= nz * ov;
+          b.x += nx * ov;
+          b.z += nz * ov;
+          const dvx = b.vx - a.vx;
+          const dvz = b.vz - a.vz;
+          const dot = dvx * nx + dvz * nz;
+          if (dot < 0) {
+            const imp = dot * 0.6;
+            a.vx += imp * nx;
+            a.vz += imp * nz;
+            b.vx -= imp * nx;
+            b.vz -= imp * nz;
+          }
         }
       }
     }
@@ -478,17 +520,24 @@ function GameScene({ stateRef, onScoreRef, dropCoinRef }: GameSceneProps) {
     (cx: number) => {
       const state = stateRef.current;
       if (state.coins.length >= MAX_COINS) return;
+      // Find how many frozen coins are already stacked at this x region
+      // Stack them slightly offset so they don't perfectly overlap
+      const frozenAtBack = state.coins.filter(
+        (c) => c.frozen && Math.abs(c.x - cx) < COIN_R * 3,
+      );
+      const stackOffset = frozenAtBack.length * 0.05;
       state.coins.push({
         id: state.coinIdCounter++,
         x: Math.max(
           LEFT_WALL_X + COIN_R + 0.05,
           Math.min(RIGHT_WALL_X - COIN_R - 0.05, cx),
         ),
-        z: BACK_WALL_Z + COIN_R + 0.1,
-        vx: (Math.random() - 0.5) * 0.2,
-        vz: 1.5 + Math.random() * 0.5,
+        z: BACK_WALL_Z + COIN_R + 0.1 + stackOffset,
+        vx: 0,
+        vz: 0,
         ry: Math.random() * Math.PI * 2,
         isGold: Math.random() < GOLD_CHANCE,
+        frozen: true,
       });
       coinsChangedRef.current = true;
     },
